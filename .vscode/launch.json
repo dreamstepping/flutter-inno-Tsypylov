@@ -1,0 +1,11 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Запуск ДЗ1",
+      "request": "launch",
+      "type": "dart",
+      "program": "lib/hw1/main.dart"
+    }
+  ]
+}
