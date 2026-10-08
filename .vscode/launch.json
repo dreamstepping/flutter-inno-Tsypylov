@@ -2,10 +2,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Запуск ДЗ1",
+      "name": "Запуск ДЗ2",
       "request": "launch",
       "type": "dart",
-      "program": "lib/hw1/main.dart"
+      "program": "lib/hw2/main.dart"
     }
   ]
 }
