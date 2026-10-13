@@ -2,10 +2,10 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "name": "Запуск ДЗ2",
+      "name": "Запуск ДЗ3",
       "request": "launch",
       "type": "dart",
-      "program": "lib/hw2/main.dart"
+      "program": "lib/main.dart" // Измените путь на lib/main.dart
     }
   ]
 }
