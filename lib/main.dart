@@ -2,6 +2,7 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'data/repositories/catalog_repository.dart';
 import 'firebase_options.dart';
 import 'ui/bloc/albums_bloc.dart';
 import 'ui/bloc/albums_event.dart';
@@ -12,7 +13,7 @@ class AppObserver extends BlocObserver {
   @override
   void onTransition(Bloc bloc, Transition transition) {
     super.onTransition(bloc, transition);
-    print('${bloc.runtimeType}: $transition');
+    debugPrint('${bloc.runtimeType}: $transition');
   }
 }
 
@@ -21,9 +22,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-  
   Bloc.observer = AppObserver();
-  
   runApp(const MyApp());
 }
 
@@ -32,14 +31,17 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      title: 'Музыкальный Каталог',
-      theme: ThemeData(
-        primarySwatch: Colors.orange,
-        useMaterial3: true,
+    return RepositoryProvider(
+      create: (_) => CatalogRepository(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        title: 'Музыкальный Каталог',
+        theme: ThemeData(
+          primarySwatch: Colors.orange,
+          useMaterial3: true,
+        ),
+        home: const AuthGate(),
       ),
-      home: const AuthGate(),
     );
   }
 }
@@ -57,12 +59,16 @@ class AuthGate extends StatelessWidget {
             body: Center(child: CircularProgressIndicator(color: Colors.orange)),
           );
         }
-        if (snapshot.data == null) {
+        
+        final user = snapshot.data;
+        if (user == null) {
           return const AuthScreen();
         }
         
         return BlocProvider(
-          create: (_) => AlbumsBloc()..add(AlbumsLoadRequested()),
+          create: (context) => AlbumsBloc(
+            context.read<CatalogRepository>(),
+          )..add(AlbumsLoadRequested(uid: user.uid)),
           child: const CatalogScreen(),
         );
       },
