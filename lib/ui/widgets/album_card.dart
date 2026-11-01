@@ -19,9 +19,7 @@ class AlbumCard extends StatelessWidget {
       color: const Color(0xFF1E1E1E),
       margin: const EdgeInsets.only(bottom: 12.0),
       elevation: 4,
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(12.0),
-      ),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12.0)),
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
@@ -70,32 +68,21 @@ class AlbumCard extends StatelessWidget {
                 children: [
                   Text(
                     album.title,
-                    style: const TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.bold,
-                      color: Colors.white,
-                    ),
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4.0),
                   Text(
                     album.artist,
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.orange,
-                    ),
+                    style: const TextStyle(fontSize: 14, fontWeight: FontWeight.w500, color: Colors.orange),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
                   const SizedBox(height: 4.0),
                   Text(
                     album.genre,
-                    style: const TextStyle(
-                      fontSize: 13,
-                      color: Colors.grey,
-                    ),
+                    style: const TextStyle(fontSize: 13, color: Colors.grey),
                   ),
                   const SizedBox(height: 8.0),
                   Row(
