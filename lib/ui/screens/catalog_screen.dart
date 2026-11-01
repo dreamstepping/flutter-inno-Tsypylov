@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/album_item.dart';
+import '../bloc/albums_bloc.dart';
+import '../bloc/albums_event.dart';
+import '../bloc/albums_state.dart';
 import '../widgets/album_card.dart';
 
 class CatalogScreen extends StatefulWidget {
@@ -16,11 +20,6 @@ class _CatalogScreenState extends State<CatalogScreen> {
   bool _onlyFavorites = false;
   bool _showForm = false;
   final TextEditingController _titleController = TextEditingController();
-
-  final Stream<QuerySnapshot<Map<String, dynamic>>> _albumsStream = FirebaseFirestore.instance
-      .collection('albums')
-      .orderBy('createdAt', descending: true)
-      .snapshots();
 
   @override
   void dispose() {
@@ -41,7 +40,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
         category: AlbumCategory.rock,
         categoryIcon: Icons.loop,
         backgroundColor: const Color(0xFF7F8C8D),
-        description: 'Добавлено через Firebase',
+        description: 'Добавлено через BLoC',
       );
 
       final data = newAlbum.toJson();
@@ -56,7 +55,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Ошибка Firestore: $e'), backgroundColor: Colors.red),
+        SnackBar(content: Text('Ошибка добавления: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -76,7 +75,7 @@ class _CatalogScreenState extends State<CatalogScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
-        title: const Text('Музыкальный Каталог', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+        title: const Text('Музыкальный Блок', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
         backgroundColor: Colors.orange,
         centerTitle: true,
         leading: IconButton(
@@ -105,40 +104,58 @@ class _CatalogScreenState extends State<CatalogScreen> {
             ),
           ),
           Expanded(
-            child: StreamBuilder<QuerySnapshot<Map<String, dynamic>>>(
-              stream: _albumsStream,
-              builder: (context, snapshot) {
-                if (snapshot.hasError) {
-                  return Center(child: Text('Ошибка: ${snapshot.error}', style: const TextStyle(color: Colors.red)));
-                }
-                if (snapshot.connectionState == ConnectionState.waiting) {
+            child: BlocBuilder<AlbumsBloc, AlbumsState>(
+              builder: (context, state) {
+                // Экран загрузки (слайд 19)
+                if (state is AlbumsLoadInProgress) {
                   return const Center(child: CircularProgressIndicator(color: Colors.orange));
                 }
 
-                final albums = snapshot.data!.docs
-                    .map((doc) => AlbumItem.fromFirestore(doc as DocumentSnapshot<Map<String, dynamic>>))
-                    .toList();
-                
-                final displayedAlbums = _onlyFavorites
-                    ? albums.where((album) => _likedIds.contains(album.id)).toList()
-                    : albums;
-
-                if (displayedAlbums.isEmpty) {
-                  return const Center(child: Text('Ничего не нашлось', style: TextStyle(color: Colors.grey, fontSize: 16)));
+                if (state is AlbumsLoadFailure) {
+                  return Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Text(state.message, style: const TextStyle(color: Colors.red, fontSize: 16)),
+                        const SizedBox(height: 16),
+                        ElevatedButton(
+                          onPressed: () => context.read<AlbumsBloc>().add(AlbumsLoadRequested()),
+                          child: const Text('Обновить'),
+                        ),
+                      ],
+                    ),
+                  );
                 }
 
-                return ListView.builder(
-                  padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                  itemCount: displayedAlbums.length,
-                  itemBuilder: (context, index) {
-                    final album = displayedAlbums[index];
-                    return AlbumCard(
-                      album: album,
-                      isLiked: _likedIds.contains(album.id),
-                      onLikeTap: () => _toggleLike(album.id),
-                    );
-                  },
-                );
+                if (state is AlbumsLoadSuccess) {
+                  final albums = state.albums;
+                  
+                  final displayedAlbums = _onlyFavorites
+                      ? albums.where((album) => _likedIds.contains(album.id)).toList()
+                      : albums;
+
+                  if (displayedAlbums.isEmpty) {
+                    return const Center(child: Text('Ничего не нашлось', style: TextStyle(color: Colors.grey, fontSize: 16)));
+                  }
+
+                  return RefreshIndicator(
+                    onRefresh: () async => context.read<AlbumsBloc>().add(AlbumsLoadRequested()),
+                    child: ListView.builder(
+                      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+                      itemCount: displayedAlbums.length,
+                      itemBuilder: (context, index) {
+                        final album = displayedAlbums[index];
+                        return AlbumCard(
+                          album: album,
+                          isLiked: _likedIds.contains(album.id),
+                          onLikeTap: () => _toggleLike(album.id),
+                        );
+                      },
+                    ),
+                  );
+                }
+
+                return const SizedBox.shrink();
               },
             ),
           ),
