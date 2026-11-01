@@ -1,99 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+import 'dart:convert';
 import '../../domain/entities/album_item.dart';
 import '../widgets/album_card.dart';
 
-const List<AlbumItem> _mockAlbums = [
-  AlbumItem(
-    id: 1,
-    title: 'The Fat of the Land',
-    artist: 'The Prodigy',
-    genre: 'Big Beat / Electronic Rock',
-    category: AlbumCategory.electronic,
-    categoryIcon: Icons.bug_report,
-    backgroundColor: Color(0xFFD35400),
-  ),
-  AlbumItem(
-    id: 2,
-    title: 'Music for the Jilted Generation',
-    artist: 'The Prodigy',
-    genre: 'Breakbeat / Techno',
-    category: AlbumCategory.electronic,
-    categoryIcon: Icons.album,
-    backgroundColor: Color(0xFF2C3E50),
-  ),
-  AlbumItem(
-    id: 3,
-    title: 'Invaders Must Die',
-    artist: 'The Prodigy',
-    genre: 'Synth-Punk / Dance-Rock',
-    category: AlbumCategory.electronic,
-    categoryIcon: Icons.dangerous,
-    backgroundColor: Color(0xFFC0392B),
-  ),
-  AlbumItem(
-    id: 4,
-    title: 'Experience',
-    artist: 'The Prodigy',
-    genre: 'Hardcore Rave / Breakbeat',
-    category: AlbumCategory.electronic,
-    categoryIcon: Icons.flash_on,
-    backgroundColor: Color(0xFF27AE60),
-  ),
-  AlbumItem(
-    id: 5,
-    title: 'Chocolate Starfish...',
-    artist: 'Limp Bizkit',
-    genre: 'Nu Metal / Rap Metal',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.star,
-    backgroundColor: Color(0xFF922B21),
-  ),
-  AlbumItem(
-    id: 6,
-    title: 'Significant Other',
-    artist: 'Limp Bizkit',
-    genre: 'Nu Metal / Rap Metal',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.music_note,
-    backgroundColor: Color(0xFF78281F),
-  ),
-  AlbumItem(
-    id: 7,
-    title: 'Sinner',
-    artist: 'Drowning Pool',
-    genre: 'Nu Metal / Post-Grunge',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.water_drop,
-    backgroundColor: Color(0xFF16A085),
-  ),
-  AlbumItem(
-    id: 8,
-    title: 'Desensitized',
-    artist: 'Drowning Pool',
-    genre: 'Alternative Metal',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.star_purple500,
-    backgroundColor: Color(0xFF8E44AD),
-  ),
-  AlbumItem(
-    id: 9,
-    title: 'Full Circle',
-    artist: 'Drowning Pool',
-    genre: 'Hard Rock / Nu Metal',
-    category: AlbumCategory.rock,
-    categoryIcon: Icons.loop,
-    backgroundColor: Color(0xFF7F8C8D),
-  ),
-  AlbumItem(
-    id: 10,
-    title: 'Resilience',
-    artist: 'Drowning Pool',
-    genre: 'Alternative Metal',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.shield,
-    backgroundColor: Color(0xFF212121),
-  ),
-];
+
+const String baseUrl = 'https://6ae41bdb933120ae20f980dc.mockapi.io'; 
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -103,11 +15,106 @@ class CatalogScreen extends StatefulWidget {
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
-  final Set<int> _likedIds = {};
+  List<AlbumItem> _albums = [];
+  final Set<String> _likedIds = {}; 
   
+  
+  bool _isLoading = false;
+  String? _errorMessage;
   bool _onlyFavorites = false;
+  bool _showForm = false;
 
-  void _toggleLike(int id) {
+  
+  final TextEditingController _titleController = TextEditingController();
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchAlbums(); 
+  }
+
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  
+  Future<void> _fetchAlbums() async {
+    setState(() {
+      _isLoading = true;
+      _errorMessage = null;
+    });
+
+    try {
+      final response = await http.get(Uri.parse('$baseUrl/albums'));
+      if (response.statusCode != 200) {
+        throw Exception('Не удалось загрузить данные (Статус: ${response.statusCode})');
+      }
+
+      final List<dynamic> decodedList = jsonDecode(response.body) as List;
+      setState(() {
+        _albums = decodedList.map((item) => AlbumItem.fromJson(item)).toList();
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() {
+        _errorMessage = e.toString();
+        _isLoading = false;
+      });
+    }
+  }
+
+  
+  Future<void> _addAlbum() async {
+    final titleText = _titleController.text.trim();
+    if (titleText.isEmpty) return; 
+
+    try {
+      
+      final newAlbum = AlbumItem(
+        id: '', 
+        title: titleText,
+        artist: 'Unknown Artist',
+        genre: 'Rock / Alternative',
+        category: AlbumCategory.rock,
+        categoryIcon: Icons.loop,
+        backgroundColor: const Color(0xFF7F8C8D), 
+        description: 'Добавлено через форму',
+      );
+
+      final response = await http.post(
+        Uri.parse('$baseUrl/albums'),
+        headers: {'Content-Type': 'application/json; charset=UTF-8'},
+        body: jsonEncode(newAlbum.toJson()),
+      );
+
+      if (!mounted) return;
+
+      if (response.statusCode != 201) {
+        throw Exception('Ошибка сохранения (Статус: ${response.statusCode})');
+      }
+
+      final createdAlbum = AlbumItem.fromJson(jsonDecode(response.body));
+
+      setState(() {
+        _albums.insert(0, createdAlbum); 
+        _titleController.clear(); 
+        _showForm = false; 
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Альбом успешно добавлен на сервер!')),
+      );
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Не удалось отправить: $e'), backgroundColor: Colors.red),
+      );
+    }
+  }
+
+  void _toggleLike(String id) {
     setState(() {
       if (_likedIds.contains(id)) {
         _likedIds.remove(id);
@@ -119,9 +126,10 @@ class _CatalogScreenState extends State<CatalogScreen> {
 
   @override
   Widget build(BuildContext context) {
+    
     final displayedAlbums = _onlyFavorites
-        ? _mockAlbums.where((album) => _likedIds.contains(album.id)).toList()
-        : _mockAlbums;
+        ? _albums.where((album) => _likedIds.contains(album.id)).toList()
+        : _albums;
 
     return Scaffold(
       backgroundColor: const Color(0xFF121212),
@@ -133,55 +141,117 @@ class _CatalogScreenState extends State<CatalogScreen> {
         backgroundColor: Colors.orange,
         centerTitle: true,
         actions: [
+          
+          IconButton(
+            icon: Icon(_showForm ? Icons.close : Icons.add, color: Colors.white),
+            onPressed: () => setState(() => _showForm = !_showForm),
+          ),
+          
           IconButton(
             icon: Icon(
               _onlyFavorites ? Icons.favorite : Icons.favorite_border,
               color: Colors.white,
             ),
-            onPressed: () {
-              setState(() {
-                _onlyFavorites = !_onlyFavorites;
-              });
-            },
+            onPressed: () => setState(() => _onlyFavorites = !_onlyFavorites),
           ),
         ],
       ),
       body: Column(
         children: [
+          
+          if (_showForm) _buildFormSection(),
+
+          
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 12.0),
             child: Text(
               'В избранном: ${_likedIds.length}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
-              ),
+              style: const TextStyle(color: Colors.white, fontSize: 16, fontWeight: FontWeight.w500),
             ),
           ),
+
+          
           Expanded(
-            child: displayedAlbums.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Ничего не нашлось',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
-                    ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    itemCount: displayedAlbums.length,
-                    itemBuilder: (context, index) {
-                      final album = displayedAlbums[index];
-                      return AlbumCard(
-                        album: album,
-                        isLiked: _likedIds.contains(album.id),
-                        onLikeTap: () => _toggleLike(album.id),
-                      );
-                    },
-                  ),
+            child: _buildMainContent(displayedAlbums),
           ),
         ],
       ),
+    );
+  }
+
+  
+  Widget _buildFormSection() {
+    return Container(
+      color: const Color(0xFF1E1E1E),
+      padding: const EdgeInsets.all(16.0),
+      child: Row(
+        children: [
+          Expanded(
+            child: TextField(
+              controller: _titleController,
+              style: const TextStyle(color: Colors.white),
+              decoration: const InputDecoration(
+                hintText: 'Название нового альбома',
+                hintStyle: TextStyle(color: Colors.grey),
+                enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange)),
+                focusedBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange, width: 2)),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          ElevatedButton(
+            onPressed: _addAlbum,
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+            child: const Text('Отправить', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  
+  Widget _buildMainContent(List<AlbumItem> displayedAlbums) {
+    if (_isLoading) {
+      return const Center(child: CircularProgressIndicator(color: Colors.orange));
+    }
+
+    if (_errorMessage != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Text(_errorMessage!, style: const TextStyle(color: Colors.red, fontSize: 14), textAlign: TextAlign.center),
+              const SizedBox(height: 16),
+              ElevatedButton.icon(
+                onPressed: _fetchAlbums,
+                icon: const Icon(Icons.refresh),
+                label: const Text('Обновить'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (displayedAlbums.isEmpty) {
+      return const Center(
+        child: Text('Ничего не нашлось', style: TextStyle(color: Colors.grey, fontSize: 16)),
+      );
+    }
+
+    return ListView.builder(
+      padding: const EdgeInsets.symmetric(horizontal: 12.0),
+      itemCount: displayedAlbums.length,
+      itemBuilder: (context, index) {
+        final album = displayedAlbums[index];
+        return AlbumCard(
+          album: album,
+          isLiked: _likedIds.contains(album.id),
+          onLikeTap: () => _toggleLike(album.id),
+        );
+      },
     );
   }
 }
