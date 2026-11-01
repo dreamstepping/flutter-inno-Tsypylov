@@ -1,3 +1,4 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 
 enum AlbumCategory {
@@ -7,7 +8,7 @@ enum AlbumCategory {
 }
 
 class AlbumItem {
-  final String id; 
+  final String id;
   final String title;
   final String artist;
   final String genre;
@@ -15,6 +16,7 @@ class AlbumItem {
   final IconData categoryIcon;
   final Color backgroundColor;
   final String? description;
+
   const AlbumItem({
     required this.id,
     required this.title,
@@ -26,31 +28,31 @@ class AlbumItem {
     this.description,
   });
 
-  
-  factory AlbumItem.fromJson(Map<String, dynamic> json) {
+  // Чтение напрямую из документа Firestore (исправляет ошибку fromFirestore)
+  factory AlbumItem.fromFirestore(DocumentSnapshot<Map<String, dynamic>> doc) {
+    final data = doc.data()!;
     final iconMap = {
       'electronic': Icons.bug_report,
       'metal': Icons.star,
       'rock': Icons.loop,
     };
 
-    final categoryStr = (json['category'] as String?) ?? 'rock';
-
-    final colorStr = (json['backgroundColor'] as String?) ?? '7F8C8D';
+    final categoryStr = data['category'] as String? ?? 'rock';
+    final colorStr = data['backgroundColor'] as String? ?? '7F8C8D';
 
     return AlbumItem(
-      id: (json['id'] as String?) ?? '',
-      title: (json['title'] as String?) ?? 'Без названия', 
-      artist: (json['artist'] as String?) ?? 'Неизвестный исполнитель', 
-      genre: (json['genre'] as String?) ?? 'Разное', 
+      id: doc.id,
+      title: data['title'] as String? ?? 'Без названия',
+      artist: data['artist'] as String? ?? 'Неизвестный исполнитель',
+      genre: data['genre'] as String? ?? 'Разное',
       category: AlbumCategory.values.byName(categoryStr),
       categoryIcon: iconMap[categoryStr] ?? Icons.music_note,
       backgroundColor: Color(int.parse('FF$colorStr', radix: 16)),
-      description: json['description'] as String?, 
+      description: data['description'] as String?,
     );
   }
 
-  
+  // Для отправки данных в Firestore
   Map<String, dynamic> toJson() {
     return {
       'title': title,
