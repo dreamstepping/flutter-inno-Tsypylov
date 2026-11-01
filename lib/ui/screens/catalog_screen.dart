@@ -1,99 +1,12 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../domain/entities/album_item.dart';
+import '../bloc/albums_bloc.dart';
+import '../bloc/albums_event.dart';
+import '../bloc/albums_state.dart';
 import '../widgets/album_card.dart';
-
-const List<AlbumItem> _mockAlbums = [
-  AlbumItem(
-    id: 1,
-    title: 'The Fat of the Land',
-    artist: 'The Prodigy',
-    genre: 'Big Beat / Electronic Rock',
-    category: AlbumCategory.electronic,
-    categoryIcon: Icons.bug_report,
-    backgroundColor: Color(0xFFD35400),
-  ),
-  AlbumItem(
-    id: 2,
-    title: 'Music for the Jilted Generation',
-    artist: 'The Prodigy',
-    genre: 'Breakbeat / Techno',
-    category: AlbumCategory.electronic,
-    categoryIcon: Icons.album,
-    backgroundColor: Color(0xFF2C3E50),
-  ),
-  AlbumItem(
-    id: 3,
-    title: 'Invaders Must Die',
-    artist: 'The Prodigy',
-    genre: 'Synth-Punk / Dance-Rock',
-    category: AlbumCategory.electronic,
-    categoryIcon: Icons.dangerous,
-    backgroundColor: Color(0xFFC0392B),
-  ),
-  AlbumItem(
-    id: 4,
-    title: 'Experience',
-    artist: 'The Prodigy',
-    genre: 'Hardcore Rave / Breakbeat',
-    category: AlbumCategory.electronic,
-    categoryIcon: Icons.flash_on,
-    backgroundColor: Color(0xFF27AE60),
-  ),
-  AlbumItem(
-    id: 5,
-    title: 'Chocolate Starfish...',
-    artist: 'Limp Bizkit',
-    genre: 'Nu Metal / Rap Metal',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.star,
-    backgroundColor: Color(0xFF922B21),
-  ),
-  AlbumItem(
-    id: 6,
-    title: 'Significant Other',
-    artist: 'Limp Bizkit',
-    genre: 'Nu Metal / Rap Metal',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.music_note,
-    backgroundColor: Color(0xFF78281F),
-  ),
-  AlbumItem(
-    id: 7,
-    title: 'Sinner',
-    artist: 'Drowning Pool',
-    genre: 'Nu Metal / Post-Grunge',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.water_drop,
-    backgroundColor: Color(0xFF16A085),
-  ),
-  AlbumItem(
-    id: 8,
-    title: 'Desensitized',
-    artist: 'Drowning Pool',
-    genre: 'Alternative Metal',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.star_purple500,
-    backgroundColor: Color(0xFF8E44AD),
-  ),
-  AlbumItem(
-    id: 9,
-    title: 'Full Circle',
-    artist: 'Drowning Pool',
-    genre: 'Hard Rock / Nu Metal',
-    category: AlbumCategory.rock,
-    categoryIcon: Icons.loop,
-    backgroundColor: Color(0xFF7F8C8D),
-  ),
-  AlbumItem(
-    id: 10,
-    title: 'Resilience',
-    artist: 'Drowning Pool',
-    genre: 'Alternative Metal',
-    category: AlbumCategory.metal,
-    categoryIcon: Icons.shield,
-    backgroundColor: Color(0xFF212121),
-  ),
-];
+import 'details_screen.dart';
 
 class CatalogScreen extends StatefulWidget {
   const CatalogScreen({super.key});
@@ -103,85 +16,180 @@ class CatalogScreen extends StatefulWidget {
 }
 
 class _CatalogScreenState extends State<CatalogScreen> {
-  final Set<int> _likedIds = {};
-  
-  bool _onlyFavorites = false;
+  final _titleController = TextEditingController();
 
-  void _toggleLike(int id) {
-    setState(() {
-      if (_likedIds.contains(id)) {
-        _likedIds.remove(id);
-      } else {
-        _likedIds.add(id);
-      }
-    });
+  @override
+  void dispose() {
+    _titleController.dispose();
+    super.dispose();
+  }
+
+  void _showAddAlbumBottomSheet() {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: const Color(0xFF1E1E1E),
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (bottomSheetContext) {
+        return Padding(
+          padding: EdgeInsets.only(
+            bottom: MediaQuery.of(bottomSheetContext).viewInsets.bottom + 24,
+            left: 24,
+            right: 24,
+            top: 24,
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Добавить новый альбом', style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 16),
+              TextField(
+                controller: _titleController,
+                style: const TextStyle(color: Colors.white),
+                decoration: const InputDecoration(
+                  hintText: 'Название альбома (Обязательно)',
+                  hintStyle: TextStyle(color: Colors.grey),
+                  enabledBorder: UnderlineInputBorder(borderSide: BorderSide(color: Colors.orange)),
+                ),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () {
+                  final titleText = _titleController.text.trim();
+                  if (titleText.isEmpty) return;
+
+                  final newAlbum = AlbumItem(
+                    id: '',
+                    title: titleText,
+                    artist: 'Independent Artist',
+                    genre: 'Electronic / Rock',
+                    categoryIcon: Icons.bug_report,
+                    backgroundColor: const Color(0xFF2980B9),
+                  );
+
+                  final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
+                  context.read<AlbumsBloc>().add(AlbumAdded(album: newAlbum, uid: uid));
+
+                  _titleController.clear();
+                  Navigator.pop(bottomSheetContext);
+                },
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.orange, minimumSize: const Size.fromHeight(45)),
+                child: const Text('Сохранить в облако', style: TextStyle(color: Colors.white)),
+              )
+            ],
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final displayedAlbums = _onlyFavorites
-        ? _mockAlbums.where((album) => _likedIds.contains(album.id)).toList()
-        : _mockAlbums;
+    final uid = FirebaseAuth.instance.currentUser?.uid ?? '';
 
-    return Scaffold(
-      backgroundColor: const Color(0xFF121212),
-      appBar: AppBar(
-        title: const Text(
-          'Музыкальный Каталог',
-          style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
-        ),
-        backgroundColor: Colors.orange,
-        centerTitle: true,
-        actions: [
-          IconButton(
-            icon: Icon(
-              _onlyFavorites ? Icons.favorite : Icons.favorite_border,
-              color: Colors.white,
+    return BlocBuilder<AlbumsBloc, AlbumsState>(
+      builder: (context, state) {
+        final isOnlyFavorites = state is AlbumsLoadSuccess ? state.showOnlyFavorites : false;
+
+        return Scaffold(
+          backgroundColor: const Color(0xFF121212),
+          appBar: AppBar(
+            title: const Text('Каталог Музыки', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white)),
+            backgroundColor: Colors.orange,
+            centerTitle: true,
+            leading: IconButton(
+              icon: const Icon(Icons.logout, color: Colors.white),
+              onPressed: () => FirebaseAuth.instance.signOut(),
             ),
-            onPressed: () {
-              setState(() {
-                _onlyFavorites = !_onlyFavorites;
-              });
-            },
-          ),
-        ],
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 12.0),
-            child: Text(
-              'В избранном: ${_likedIds.length}',
-              style: const TextStyle(
-                color: Colors.white,
-                fontSize: 16,
-                fontWeight: FontWeight.w500,
+            actions: [
+              IconButton(
+                icon: const Icon(Icons.add, color: Colors.white),
+                onPressed: _showAddAlbumBottomSheet,
               ),
-            ),
+              IconButton(
+                icon: Icon(isOnlyFavorites ? Icons.favorite : Icons.favorite_border, color: Colors.white),
+                onPressed: () => context.read<AlbumsBloc>().add(ToggleFilterRequested()),
+              ),
+            ],
           ),
-          Expanded(
-            child: displayedAlbums.isEmpty
-                ? const Center(
-                    child: Text(
-                      'Ничего не нашлось',
-                      style: TextStyle(color: Colors.grey, fontSize: 16),
+          body: () {
+            if (state is AlbumsLoadInProgress) {
+              return const Center(child: CircularProgressIndicator(color: Colors.orange));
+            }
+
+            if (state is AlbumsLoadFailure) {
+              return Center(
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(state.message, style: const TextStyle(color: Colors.red, fontSize: 16)),
+                    const SizedBox(height: 16),
+                    ElevatedButton(
+                      onPressed: () => context.read<AlbumsBloc>().add(AlbumsLoadRequested(uid: uid)),
+                      child: const Text('Обновить'),
                     ),
-                  )
-                : ListView.builder(
-                    padding: const EdgeInsets.symmetric(horizontal: 12.0),
-                    itemCount: displayedAlbums.length,
-                    itemBuilder: (context, index) {
-                      final album = displayedAlbums[index];
-                      return AlbumCard(
-                        album: album,
-                        isLiked: _likedIds.contains(album.id),
-                        onLikeTap: () => _toggleLike(album.id),
-                      );
-                    },
+                  ],
+                ),
+              );
+            }
+
+            if (state is AlbumsLoadSuccess) {
+              final displayedAlbums = state.displayedAlbums;
+
+              if (displayedAlbums.isEmpty) {
+                return Center(
+                  child: Text(
+                    isOnlyFavorites ? 'В избранном пока пусто' : 'Каталог пуст',
+                    style: const TextStyle(color: Colors.grey, fontSize: 16, fontWeight: FontWeight.w500),
                   ),
-          ),
-        ],
-      ),
+                );
+              }
+
+              return RefreshIndicator(
+                onRefresh: () async => context.read<AlbumsBloc>().add(AlbumsLoadRequested(uid: uid)),
+                child: ListView.builder(
+                  padding: const EdgeInsets.symmetric(horizontal: 12.0, vertical: 12.0),
+                  itemCount: displayedAlbums.length,
+                  itemBuilder: (context, index) {
+                    final album = displayedAlbums[index];
+                    final isLiked = state.favoriteIds.contains(album.id);
+                    
+                    return GestureDetector(
+                      onTap: () {
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => DetailsScreen(
+                              album: album,
+                              isLiked: isLiked,
+                              onLikeTap: () {
+                                context.read<AlbumsBloc>().add(ToggleLikeRequested(uid: uid, itemId: album.id));
+                              },
+                            ),
+                          ),
+                        );
+                      },
+                      child: Hero(
+                        tag: 'album-cover-${album.id}',
+                        child: AlbumCard(
+                          album: album,
+                          isLiked: isLiked,
+                          onLikeTap: () {
+                            context.read<AlbumsBloc>().add(ToggleLikeRequested(uid: uid, itemId: album.id));
+                          },
+                        ),
+                      ),
+                    );
+                  },
+                ),
+              );
+            }
+
+            return const SizedBox.shrink();
+          }(),
+        );
+      },
     );
   }
 }
